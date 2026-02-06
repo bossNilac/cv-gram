@@ -1,0 +1,36 @@
+
+# --- API ---
+fastapi
+uvicorn
+python-multipart
+
+# --- Pydantic / ASGI deps ---
+pydantic
+typing_extensions
+annotated-types
+anyio
+starlette
+
+# --- Numerics / data ---
+python-dateutil
+pytz
+tzdata==2025.2
+
+# --- Small rater ---
+requests
+regex
+python-dotenv
+
+# -- SQL --
+sqlalchemy
+psycopg
+
+pillow
+pyjwt
+APScheduler
+httpx
+openai
+jsonschema
+psycopg
+pdfminer.six
+docx
