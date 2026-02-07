@@ -33,8 +33,8 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from starlette.requests import Request
 
-from db import get_session
-from models.resumescore import ResumeScores
+from db.db import get_session
+from models.classes import ResumeScores
 
 # --- Config ---
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
@@ -923,7 +923,7 @@ def health() -> Dict[str, Any]:
 async def score_resume(file: UploadFile = File(...)):
     return await score_resume_function(file, get_openai_client(), PRIMARY_MODEL)
 
-@router.post("/resume/store/score", response_model=ScoreResponseModel)
+@router.put("/resume/score", response_model=ScoreResponseModel)
 async def score_resume(request : Request,file: UploadFile = File(...),db: Session = Depends(get_session)):
     user_id = int(getattr(request.state, "user_id", None))  # set by middleware after JWT checks
     return await score_resume_function(file, get_openai_client(), PRIMARY_MODEL,True,user_id,db)
@@ -1006,10 +1006,15 @@ async def get_skills(file: UploadFile = File(...)):
 # curl -s -X POST "http://127.0.0.1:9000/v2/parser/resume/score" -F "file=@C:\Users\Calin\Downloads\cv.pdf"
 # curl -s -X POST "http://127.0.0.1:9000/v2/parser/resume/acc/score" -F "file=@C:\Users\Calin\Downloads\cv.pdf"
 # curl -s -X POST "http://127.0.0.1:9000/v2/parser/resume/cv" -F "file=@C:\Users\Calin\Downloads\cv.pdf"
-# curl -s -X POST "http://127.0.0.1:8000/v2/parser/resume/store/score" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiI5ZTI4NTJhOS00Njc5LTQzNDQtODczNC1lZWQ3NTliNjQ2ZGQiLCJzdWIiOiIxIiwiaWF0IjoxNzYwMjk4MDEyLCJleHAiOjE3NjAzODQ0MTJ9.TtkNEKVgYiFPTvvZiXwyLJoejsweWxeDATH-3-TCsds" -F "file=@C:\Users\Calin\Downloads\cv.pdf"
+# curl -s -X PUT "http://127.0.0.1:8000/v2/parser/resume/score" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiI5ZTI4NTJhOS00Njc5LTQzNDQtODczNC1lZWQ3NTliNjQ2ZGQiLCJzdWIiOiIxIiwiaWF0IjoxNzYwMjk4MDEyLCJleHAiOjE3NjAzODQ0MTJ9.TtkNEKVgYiFPTvvZiXwyLJoejsweWxeDATH-3-TCsds" -F "file=@C:\Users\Calin\Downloads\cv.pdf"
 
 # curl -X GET "http://127.0.0.1:8000/v1/resume-scores" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiI5ZTI4NTJhOS00Njc5LTQzNDQtODczNC1lZWQ3NTliNjQ2ZGQiLCJzdWIiOiIxIiwiaWF0IjoxNzYwMjk4MDEyLCJleHAiOjE3NjAzODQ0MTJ9.TtkNEKVgYiFPTvvZiXwyLJoejsweWxeDATH-3-TCsds"
 
+# curl -s -X POST "https://elite-chal-xp-tasks-fea8332d31e3.herokuapp.com/v2/parser/resume/score" -F "file=@C:\Users\Calin\Downloads\cv.pdf"
+# curl -s -X POST "https://elite-chal-xp-tasks-fea8332d31e3.herokuapp.com/v2/parser/resume/acc/score" -F "file=@C:\Users\Calin\Downloads\cv.pdf"
+
+# TO DO:
+# -endpointturi for cv correction;
 
 skeleton_response_linkdin= {
   "profile": {
@@ -1151,10 +1156,3 @@ skeleton_response_parsing={
     }
   }
 }
-
-
-# curl -s -X POST "https://elite-chal-xp-tasks-fea8332d31e3.herokuapp.com/v2/parser/resume/score" -F "file=@C:\Users\Calin\Downloads\cv.pdf"
-# curl -s -X POST "https://elite-chal-xp-tasks-fea8332d31e3.herokuapp.com/v2/parser/resume/acc/score" -F "file=@C:\Users\Calin\Downloads\cv.pdf"
-
-# TO DO:
-# -endpointturi for cv correction;

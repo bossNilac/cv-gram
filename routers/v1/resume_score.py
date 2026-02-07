@@ -3,7 +3,7 @@ from pydantic import BaseModel, Field, confloat
 from sqlalchemy.orm import Session
 
 from db.db import get_session
-from models.resumescore import ResumeScores
+from models.classes import ResumeScores
 
 router = APIRouter()
 

@@ -3,6 +3,7 @@
 fastapi
 uvicorn
 python-multipart
+argon2-cffi
 
 # --- Pydantic / ASGI deps ---
 pydantic
@@ -34,3 +35,5 @@ jsonschema
 psycopg
 pdfminer.six
 docx
+
+slowapi
