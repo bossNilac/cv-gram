@@ -13,7 +13,7 @@ from starlette.responses import Response
 
 from db.db import get_session
 from main import limiter
-from models.classes import User, Sessions, PasswordToken, EmailToken
+from models.classes import User, PasswordToken, EmailToken, Sessions
 from models.dto_classes import *
 from services.email import notify_password_reset, notify_new_login, notify_welcome
 

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 OpenAI-powered CV Rater (V2)
 
@@ -9,7 +8,6 @@ Changes per request:
   - The API then returns a 422 with that error message.
 - Still validate file type and reject corrupted/unreadable files before sending to OpenAI.
 - Files handled strictly in RAM.
-- Includes new `projects` component.
 - Output structure is detailed and consistent, with components, weights, confidence, explanation, etc.
 - Prompts and rules are generalized, suitable for all industries.
 """
@@ -33,24 +31,25 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from starlette.requests import Request
 
+import config
 from db.db import get_session
+from main import limiter
 from models.classes import ResumeScores
+from models.dto_classes import ScoreResponseModel
 
 # --- Config ---
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+OPENAI_API_KEY = config.Settings.openai_api_key
 #
-OPENAI_ACC_TERMS_API_KEY = os.getenv("OPENAI_ACC_TERMS_API_KEY", "")
-CV_MAX_MB = float(os.getenv("CV_MAX_MB", "10"))
-CHUNK = 1 * 1024 * 1024  # 1 MB
+OPENAI_ADV_API_KEY = config.Settings.openai_adv_api_key
+CV_MAX_MB = config.Settings.cv_max_mb
 
-PRIMARY_MODEL = os.getenv("PRIMARY_MODEL", "gpt-4o-mini")
-ESCALATION_MODEL = os.getenv("ESCALATION_MODEL", "gpt-4o")
+PRIMARY_MODEL = config.Settings.primary_model
+ESCALATION_MODEL = config.Settings.escalation_model
 
-ACC_TERMS_MODEL = os.getenv("ACC_TERMS_MODEL", "gpt-5-mini-2025-08-07")
+ADV_MODEL = config.Settings.adv_model
 
-AUTO_ESCALATE = os.getenv("AUTO_ESCALATE", "1") == "1"
-MIN_CONFIDENCE = float(os.getenv("MIN_CONFIDENCE", "0.50"))
-
+AUTO_ESCALATE = config.Settings.auto_escalate
+MIN_CONFIDENCE = config.Settings.min_confidence
 ALLOWED_EXTS = {".pdf", ".doc", ".docx"}
 
 # --- Optional MIME sniffing ---
@@ -61,7 +60,7 @@ except Exception:
     _HAS_MAGIC = False
 
 _CLIENT = None
-_CLIENT_ACC_TERMS = None
+_CLIENT_ADV = None
 
 def get_openai_client():
     global _CLIENT
@@ -72,14 +71,14 @@ def get_openai_client():
         _CLIENT = OpenAI(api_key=OPENAI_API_KEY)
     return _CLIENT
 
-def get_openai_acc_client():
-    global _CLIENT_ACC_TERMS
-    if _CLIENT_ACC_TERMS is None:
-        if not OPENAI_ACC_TERMS_API_KEY:
-            raise HTTPException(status_code=500, detail="Missing OPENAI_ACC_TERMS_API_KEY")
+def get_openai_adv_client():
+    global _CLIENT_ADV
+    if _CLIENT_ADV is None:
+        if not OPENAI_ADV_API_KEY:
+            raise HTTPException(status_code=500, detail="Missing OPENAI_ADV_API_KEY")
         from openai import OpenAI
-        _CLIENT_ACC_TERMS = OpenAI(api_key=OPENAI_ACC_TERMS_API_KEY)
-    return _CLIENT_ACC_TERMS
+        _CLIENT_ADV = OpenAI(api_key=OPENAI_ADV_API_KEY)
+    return _CLIENT_ADV
 
 def _read_streaming_to_memory(upload: UploadFile, max_mb: float) -> bytes:
     max_bytes = int(max_mb * 1024 * 1024)
@@ -624,7 +623,7 @@ def _job_set(proc_id: str, **kv):
     job = JOBS.setdefault(proc_id, {})
     job.update(kv)
 
-async def _run_score_job(proc_id: str, data: bytes, filename: str, *, acc: bool):
+async def _run_score_job(proc_id: str, data: bytes, filename: str, *, adv: bool):
     """
     Background runner that calls your existing score function and records status/result.
     """
@@ -634,8 +633,8 @@ async def _run_score_job(proc_id: str, data: bytes, filename: str, *, acc: bool)
         # Build a fresh UploadFile for your parser
         up = _clone_uploadfile_from_bytes(data, filename)
 
-        client = get_openai_acc_client() if acc else get_openai_client()
-        model = ACC_TERMS_MODEL if acc else PRIMARY_MODEL
+        client = get_openai_adv_client() if adv else get_openai_client()
+        model = ADV_MODEL if adv else PRIMARY_MODEL
 
         _job_set(proc_id, stage="scoring", progress=35)
         resp: JSONResponse = await score_resume_function(up, client, model)
@@ -718,7 +717,7 @@ def _call_openai_model(system_prompt,response_schema,rule_set,client,text: str, 
             temperature=0.2,
             response_format={"type": "json_object"},  # JSON mode
         )
-        elif client is _CLIENT_ACC_TERMS:
+        elif client is _CLIENT_ADV:
             resp = client.chat.completions.create(
                 model=model,
                 messages=messages,
@@ -791,7 +790,7 @@ async def score_resume_function(
     conf = float(parsed.get("confidence") or 0.0)
 
     # ESCALATION (also off the event loop)
-    if AUTO_ESCALATE and conf < MIN_CONFIDENCE and (model != ACC_TERMS_MODEL):
+    if AUTO_ESCALATE and conf < MIN_CONFIDENCE and (model != ADV_MODEL):
         try:
             result_hi = await _call_openai_model_async(SYSTEM_PROMPT_PARSING,RESPONSE_SCHEMA_PARSING
                                             ,RULESET_PARSING,client, text, weights, ESCALATION_MODEL)
@@ -889,13 +888,6 @@ async def _call_openai_model_async(prompt,response,ruleset,client, text, weights
         partial(_call_openai_model_sync, prompt,response,ruleset,client, text, weights, model)
     )
 
-
-# ===Routers zone===
-
-class ScoreResponseModel(BaseModel):
-    score: float = Field(..., description="Final score 0–100")
-    parsed: Dict[str, Any]
-
 @router.get("/health")
 def health() -> Dict[str, Any]:
     return {
@@ -908,17 +900,18 @@ def health() -> Dict[str, Any]:
         "max_mb": CV_MAX_MB,
     }
 
-@router.get("/acc/health")
+@router.get("/adv/health")
 def health() -> Dict[str, Any]:
     return {
         "status": "ok",
-        "openai_key": bool(OPENAI_ACC_TERMS_API_KEY),
-        "primary_model": ACC_TERMS_MODEL,
+        "openai_key": bool(OPENAI_ADV_API_KEY),
+        "primary_model": ADV_MODEL,
         "auto_escalate": "No",
         "min_confidence": "Not needed",
         "max_mb": CV_MAX_MB,
     }
 
+@limiter.limit("2/hour")
 @router.post("/resume/score", response_model=ScoreResponseModel)
 async def score_resume(file: UploadFile = File(...)):
     return await score_resume_function(file, get_openai_client(), PRIMARY_MODEL)
@@ -928,11 +921,11 @@ async def score_resume(request : Request,file: UploadFile = File(...),db: Sessio
     user_id = int(getattr(request.state, "user_id", None))  # set by middleware after JWT checks
     return await score_resume_function(file, get_openai_client(), PRIMARY_MODEL,True,user_id,db)
 
-
-@router.post("/resume/acc/score_async")
-async def score_resume_acc_start(request: Request, file: UploadFile = File(...)):
+@limiter.limit("2/hour")
+@router.post("/resume/adv/score_async")
+async def score_resume_adv_start(request: Request, file: UploadFile = File(...)):
     """
-    Start async scoring on ACC models. Returns proc_id immediately.
+    Start async scoring on ADV models. Returns proc_id immediately.
     """
     user_id = int(getattr(request.state, "user_id", None))  # set by middleware after JWT checks
     if not user_id:
@@ -946,13 +939,14 @@ async def score_resume_acc_start(request: Request, file: UploadFile = File(...))
     await file.close()
 
     proc_id = _new_proc_id()
-    _job_set(proc_id, status="queued", stage="queued", progress=0, created_at=_now(), acc=True, filename=filename)
+    _job_set(proc_id, status="queued", stage="queued", progress=0, created_at=_now(), adv=True, filename=filename)
     _attach_user_process(user_id, proc_id)
 
-    asyncio.create_task(_run_score_job(proc_id, data, filename, acc=True))
+    asyncio.create_task(_run_score_job(proc_id, data, filename, adv=True))
 
     return JSONResponse({"proc_id": proc_id, "status": "queued"})
 
+@limiter.limit("2/hour")
 @router.get("/resume/task_status/{task_id}")
 def score_get_task_status(task_id: str, request: Request):
     """
@@ -975,12 +969,13 @@ def score_get_task_status(task_id: str, request: Request):
         "created_at": job.get("created_at"),
         "started_at": job.get("started_at"),
         "finished_at": job.get("finished_at"),
-        "acc": job.get("acc", False),
+        "adv": job.get("adv", False),
         "filename": job.get("filename"),
         # You can include partials here later if you produce them
     }
     return JSONResponse(payload)
 
+@limiter.limit("2/hour")
 @router.get("/resume/result/{task_id}")
 def score_get_result(task_id: str, request: Request):
     """
@@ -998,23 +993,21 @@ def score_get_result(task_id: str, request: Request):
     # Return the exact shape your score function returns (score + parsed)
     return JSONResponse(job["result"])
 
+@limiter.limit("2/hour")
 @router.post("/resume/cv", response_model=ScoreResponseModel)
 async def get_skills(file: UploadFile = File(...)):
     return await linkedin_resume_function(file, get_openai_client(), PRIMARY_MODEL)
 
 
 # curl -s -X POST "http://127.0.0.1:9000/v2/parser/resume/score" -F "file=@C:\Users\Calin\Downloads\cv.pdf"
-# curl -s -X POST "http://127.0.0.1:9000/v2/parser/resume/acc/score" -F "file=@C:\Users\Calin\Downloads\cv.pdf"
+# curl -s -X POST "http://127.0.0.1:9000/v2/parser/resume/adv/score" -F "file=@C:\Users\Calin\Downloads\cv.pdf"
 # curl -s -X POST "http://127.0.0.1:9000/v2/parser/resume/cv" -F "file=@C:\Users\Calin\Downloads\cv.pdf"
 # curl -s -X PUT "http://127.0.0.1:8000/v2/parser/resume/score" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiI5ZTI4NTJhOS00Njc5LTQzNDQtODczNC1lZWQ3NTliNjQ2ZGQiLCJzdWIiOiIxIiwiaWF0IjoxNzYwMjk4MDEyLCJleHAiOjE3NjAzODQ0MTJ9.TtkNEKVgYiFPTvvZiXwyLJoejsweWxeDATH-3-TCsds" -F "file=@C:\Users\Calin\Downloads\cv.pdf"
 
 # curl -X GET "http://127.0.0.1:8000/v1/resume-scores" -H "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiI5ZTI4NTJhOS00Njc5LTQzNDQtODczNC1lZWQ3NTliNjQ2ZGQiLCJzdWIiOiIxIiwiaWF0IjoxNzYwMjk4MDEyLCJleHAiOjE3NjAzODQ0MTJ9.TtkNEKVgYiFPTvvZiXwyLJoejsweWxeDATH-3-TCsds"
 
 # curl -s -X POST "https://elite-chal-xp-tasks-fea8332d31e3.herokuapp.com/v2/parser/resume/score" -F "file=@C:\Users\Calin\Downloads\cv.pdf"
-# curl -s -X POST "https://elite-chal-xp-tasks-fea8332d31e3.herokuapp.com/v2/parser/resume/acc/score" -F "file=@C:\Users\Calin\Downloads\cv.pdf"
-
-# TO DO:
-# -endpointturi for cv correction;
+# curl -s -X POST "https://elite-chal-xp-tasks-fea8332d31e3.herokuapp.com/v2/parser/resume/adv/score" -F "file=@C:\Users\Calin\Downloads\cv.pdf"
 
 skeleton_response_linkdin= {
   "profile": {

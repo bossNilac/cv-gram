@@ -3,33 +3,11 @@ from pydantic import BaseModel, Field, confloat
 from sqlalchemy.orm import Session
 
 from db.db import get_session
+from main import limiter
 from models.classes import ResumeScores
+from models.dto_classes import ResumeScoresIn, ResumeScoresOut
 
 router = APIRouter()
-
-# ---------- Pydantic Schemas ----------
-
-Score = confloat(ge=0.0)  # adjust bounds if you cap to 1.0 or 100.0
-
-class ResumeScoresOut(BaseModel):
-    user_id: int
-    overall_score: float
-    projects_score: float
-    experience_score: float
-    education_score: float
-    skills_score: float
-
-class ResumeScoresIn(BaseModel):
-    # Require the 4 components; overall is optional (will compute if omitted)
-    projects_score: Score = Field(..., description="Projects score")
-    experience_score: Score = Field(..., description="Experience score")
-    education_score: Score = Field(..., description="Education score")
-    skills_score: Score = Field(..., description="Skills score")
-    overall_score: Score | None = Field(
-        None,
-        description="If omitted, overall_score = average of component scores."
-    )
-
 
 def _compute_overall(dto: ResumeScoresIn) -> float:
     if dto.overall_score is not None:
@@ -39,9 +17,7 @@ def _compute_overall(dto: ResumeScoresIn) -> float:
         (dto.projects_score + dto.experience_score + dto.education_score + dto.skills_score) / 4.0
     )
 
-
-# ---------- Endpoints (Preference-style) ----------
-
+@limiter.limit("5/minute")
 @router.get("/resume-scores", response_model=ResumeScoresOut)
 def get_resume_scores(
     request: Request,
@@ -65,7 +41,7 @@ def get_resume_scores(
         skills_score=float(row.skills_score),
     )
 
-
+@limiter.limit("5/minute")
 @router.get("/resume-scores/{user_id}", response_model=ResumeScoresOut)
 def get_resume_scores_by_id(
     user_id: int,

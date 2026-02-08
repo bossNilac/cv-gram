@@ -16,4 +16,18 @@ class Settings:
     frontend_base_url: str = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
     support_email: str = os.getenv("SUPPORT_EMAIL", "support@cvgram.local")
 
+    openai_api_key = os.getenv("OPENAI_API_KEY", "")
+    openai_adv_api_key = os.getenv("OPENAI_ADV_API_KEY", "")
+
+    cv_max_mb = float(os.getenv("CV_MAX_MB", "10"))
+    chunk = 1 * 1024 * 1024  # 1 MB
+
+    primary_model = os.getenv("PRIMARY_MODEL", "gpt-4o-mini")
+    escalation_model = os.getenv("ESCALATION_MODEL", "gpt-4o")
+    adv_model = os.getenv("ADV_MODEL", "gpt-5-mini-2025-08-07")
+
+    auto_escalate = os.getenv("AUTO_ESCALATE", "1") == "1"
+    min_confidence = float(os.getenv("MIN_CONFIDENCE", "0.50"))
+
+
 settings = Settings()
