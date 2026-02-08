@@ -42,6 +42,7 @@ OPENAI_API_KEY = config.Settings.openai_api_key
 #
 OPENAI_ADV_API_KEY = config.Settings.openai_adv_api_key
 CV_MAX_MB = config.Settings.cv_max_mb
+CHUNK = 1024*1024 #1 MB
 
 PRIMARY_MODEL = config.Settings.primary_model
 ESCALATION_MODEL = config.Settings.escalation_model
