@@ -2,7 +2,7 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from config import settings
+from backend.config import settings
 
 
 def _send_html_email(to_email: str, subject: str, html_body: str) -> None:

@@ -11,11 +11,11 @@ from fastapi import Request
 from sqlalchemy.orm import Session
 from starlette.responses import Response
 
-from db.db import get_session
-from main import limiter
-from models.classes import User, PasswordToken, EmailToken, Sessions
-from models.dto_classes import *
-from services.email import notify_password_reset, notify_new_login, notify_welcome
+from backend.db.db import get_session
+from backend.main import limiter
+from backend.models.classes import User, PasswordToken, EmailToken, Sessions
+from backend.models.dto_classes import *
+from backend.services.email import notify_password_reset, notify_new_login, notify_welcome
 
 router = APIRouter()
 

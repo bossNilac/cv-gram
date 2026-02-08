@@ -30,12 +30,12 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from starlette.requests import Request
 
-import config
-from db.db import get_session
-from main import limiter
-from models.classes import Profile
-from models.dto_classes import ScoreResponseModel
-from routers.auth_routers.auth_router import get_user_id
+from backend import config
+from backend.db.db import get_session
+from backend.main import limiter
+from backend.models.classes import Profile
+from backend.models.dto_classes import ScoreResponseModel
+from backend.routers.auth_routers.auth_router import get_user_id
 
 # --- Config ---
 OPENAI_API_KEY = config.Settings.openai_api_key

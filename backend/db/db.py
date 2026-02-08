@@ -10,7 +10,7 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import Session, sessionmaker
 
 # Declarative base
-from models.base import Base
+from backend.models.base import Base
 
 
 def _compose_sqla_url() -> str:
