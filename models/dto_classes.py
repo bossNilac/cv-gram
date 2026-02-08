@@ -35,6 +35,21 @@ class ResumeScoresOut(BaseModel):
     education_score: float
     skills_score: float
 
+class ProfileOut(BaseModel):
+    user_id: str
+    overall_score: float
+    projects_score: float
+    experience_score: float
+    education_score: float
+    skills_score: float
+    profile_json: str
+
+class MeOut(BaseModel):
+    email: str
+    is_Active: bool
+    created_at: str
+    updated_at: str
+
 class ResumeScoresIn(BaseModel):
     # Require the 4 components; overall is optional (will compute if omitted)
     projects_score: Score = Field(..., description="Projects score")

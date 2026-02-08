@@ -7,7 +7,7 @@ from sqlalchemy import (
 )
 from sqlalchemy import MetaData
 from sqlalchemy.dialects.oracle import TIMESTAMP
-from sqlalchemy.dialects.postgresql import BYTEA
+from sqlalchemy.dialects.postgresql import BYTEA, JSONB
 from sqlalchemy.dialects.postgresql.base import DOUBLE_PRECISION
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -56,27 +56,16 @@ class PasswordToken(Base):
     expires_at: Mapped[str] = mapped_column(TIMESTAMP, nullable=False)
     used_at: Mapped[str] | None = mapped_column(TIMESTAMP, nullable=False)
 
-class ResumeScores(Base):
-    __tablename__ = "resume_scores"
-    __table_args__ = (
-        {"schema": "challenges_schema"},
-    )
-
-    user_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+class Profile(Base):
+    __tablename__ = "profile"
+    user_id: Mapped[str] = mapped_column(UUID, primary_key=True)
 
     overall_score: Mapped[float] = mapped_column(DOUBLE_PRECISION, nullable=False)
     projects_score: Mapped[float] = mapped_column(DOUBLE_PRECISION, nullable=False)
     experience_score: Mapped[float] = mapped_column(DOUBLE_PRECISION, nullable=False)
     education_score: Mapped[float] = mapped_column(DOUBLE_PRECISION, nullable=False)
     skills_score: Mapped[float] = mapped_column(DOUBLE_PRECISION, nullable=False)
-
-    def __repr__(self) -> str:
-        return (
-            f"<ResumeScores user_id={self.user_id} "
-            f"overall={self.overall_score} projects={self.projects_score} "
-            f"experience={self.experience_score} education={self.education_score} "
-            f"skills={self.skills_score}>"
-        )
+    profile_json: Mapped[str] = mapped_column(JSONB, nullable=False)
 
 class EmailToken(Base):
     __tablename__ = "email_verification"

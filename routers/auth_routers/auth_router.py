@@ -198,11 +198,17 @@ def logout(request: Request,db: Session = Depends(get_session)):
     return response
 
 @limiter.limit("20/minute")
-@router.post("/me")
+@router.post("/me",response_model=MeOut, status_code=200)
 def me(request: Request,db: Session = Depends(get_session)):
-    # TODO upgrade this
-    get_user_id(request, db)
-    return Response(status_code=200, content="ok")
+    user_id = get_user_id(request, db)[0]
+    user = db.query(User).filter(User.is_Active == True).filter(User.uuid == user_id).first()
+    output = MeOut(
+        email=user.email,
+        is_Active=user.is_Active,
+        created_at=user.created_at,
+        updated_at=user.updated_at,
+    )
+    return output
 
 @limiter.limit("5/minute")
 @router.post("/password/forgot")
@@ -234,6 +240,7 @@ def forgot(payload:ResetPasswordIn,
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     user.password_hash = argon2_hasher.hash(payload.new_password)
+    user.updated_at = now
     db_token.used_at = now
     (
         db.query(PasswordToken)
