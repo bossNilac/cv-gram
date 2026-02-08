@@ -44,6 +44,16 @@ class ProfileOut(BaseModel):
     skills_score: float
     profile_json: str
 
+class SearchOut(BaseModel):
+    user_id: str
+    overall_score: float
+    projects_score: float
+    experience_score: float
+    education_score: float
+    skills_score: float
+    profile_json: str
+    rank: float
+
 class MeOut(BaseModel):
     email: str
     is_Active: bool

@@ -28,7 +28,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 def create_app() -> FastAPI:
     # Include routers
     app.include_router(parser_v2, prefix="/parser", tags=["parserV2"])
-    app.include_router(resume_router, prefix="/profile", tags=["parserV2"])
+    app.include_router(resume_router, prefix="/profiles", tags=["parserV2"])
     app.include_router(auth_router, prefix="/auth", tags=["parserV2"])
 
     return app

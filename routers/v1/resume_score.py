@@ -1,10 +1,14 @@
+from typing import List, Optional
+
 from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi.params import Query
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from db.db import get_session
 from main import limiter
 from models.classes import Profile
-from models.dto_classes import ResumeScoresIn, ResumeScoresOut, ProfileOut
+from models.dto_classes import ResumeScoresIn, ResumeScoresOut, ProfileOut, SearchOut
 from routers.auth_routers.auth_router import get_user_id
 
 router = APIRouter()
@@ -16,6 +20,73 @@ def _compute_overall(dto: ResumeScoresIn) -> float:
     return float(
         (dto.projects_score + dto.experience_score + dto.education_score + dto.skills_score) / 4.0
     )
+
+def _search_profiles(
+    db: Session,
+    *,
+    q_name: Optional[str] = None,
+    q_location: Optional[str] = None,
+    q_experience: Optional[str] = None,
+    q_education: Optional[str] = None,
+    limit: int = 10,
+    offset: int = 0,
+    overall_min: Optional[float] = None,
+    overall_max: Optional[float] = None,
+    projects_min: Optional[float] = None,
+    projects_max: Optional[float] = None,
+    experience_min: Optional[float] = None,
+    experience_max: Optional[float] = None,
+    education_min: Optional[float] = None,
+    education_max: Optional[float] = None,
+    skills_min: Optional[float] = None,
+    skills_max: Optional[float] = None,
+):
+    stmt = text("""
+        SELECT *
+        FROM public.search_profiles_v3(
+            :q_name,
+            :q_location,
+            :q_experience,
+            :q_education,
+            :p_limit,
+            :p_offset,
+            :overall_min,
+            :overall_max,
+            :projects_min,
+            :projects_max,
+            :experience_min,
+            :experience_max,
+            :education_min,
+            :education_max,
+            :skills_min,
+            :skills_max
+        )
+    """)
+
+    rows = db.execute(
+        stmt,
+        {
+            "q_name": q_name,
+            "q_location": q_location,
+            "q_experience": q_experience,
+            "q_education": q_education,
+            "p_limit": limit,
+            "p_offset": offset,
+            "overall_min": overall_min,
+            "overall_max": overall_max,
+            "projects_min": projects_min,
+            "projects_max": projects_max,
+            "experience_min": experience_min,
+            "experience_max": experience_max,
+            "education_min": education_min,
+            "education_max": education_max,
+            "skills_min": skills_min,
+            "skills_max": skills_max,
+        }
+    ).mappings().all()
+
+    return rows
+
 
 @limiter.limit("5/minute")
 @router.get("/resume-scores", response_model=ResumeScoresOut)
@@ -91,3 +162,66 @@ def get_resume_scores_by_id(
         skills_score=float(row.skills_score),
         profile_json=row.profile_json,
     )
+
+@router.get("/search/", response_model=List[SearchOut])
+def search_profiles(
+    request: Request,
+    db: Session = Depends(get_session),
+
+    # text fields
+    q_name: Optional[str] = Query(default=None),
+    q_location: Optional[str] = Query(default=None),
+    q_experience: Optional[str] = Query(default=None),
+    q_education: Optional[str] = Query(default=None),
+
+    # paging
+    limit: int = Query(default=10, ge=1, le=50),
+    offset: int = Query(default=0, ge=0),
+
+    # numeric filters
+    overall_min: Optional[float] = Query(default=None),
+    overall_max: Optional[float] = Query(default=None),
+    projects_min: Optional[float] = Query(default=None),
+    projects_max: Optional[float] = Query(default=None),
+    experience_min: Optional[float] = Query(default=None),
+    experience_max: Optional[float] = Query(default=None),
+    education_min: Optional[float] = Query(default=None),
+    education_max: Optional[float] = Query(default=None),
+    skills_min: Optional[float] = Query(default=None),
+    skills_max: Optional[float] = Query(default=None),
+):
+    _user_id, _session = get_user_id(request, db)
+
+    rows = _search_profiles(
+        db,
+        q_name=q_name,
+        q_location=q_location,
+        q_experience=q_experience,
+        q_education=q_education,
+        limit=limit,
+        offset=offset,
+        overall_min=overall_min,
+        overall_max=overall_max,
+        projects_min=projects_min,
+        projects_max=projects_max,
+        experience_min=experience_min,
+        experience_max=experience_max,
+        education_min=education_min,
+        education_max=education_max,
+        skills_min=skills_min,
+        skills_max=skills_max,
+    )
+
+    return [
+        SearchOut(
+            user_id=row["user_id"],
+            overall_score=float(row["overall_score"]),
+            projects_score=float(row["projects_score"]),
+            experience_score=float(row["experience_score"]),
+            education_score=float(row["education_score"]),
+            skills_score=float(row["skills_score"]),
+            profile_json=row["profile_json"],
+            rank=float(row["rank"]) if row["rank"] is not None else 0.0,
+        )
+        for row in rows
+    ]
