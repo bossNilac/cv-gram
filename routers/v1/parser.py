@@ -27,22 +27,22 @@ import anyio
 from fastapi import File, HTTPException, UploadFile, APIRouter
 from fastapi.params import Depends
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from starlette.requests import Request
 
 import config
 from db.db import get_session
 from main import limiter
-from models.classes import ResumeScores
+from models.classes import Profile
 from models.dto_classes import ScoreResponseModel
+from routers.auth_routers.auth_router import get_user_id
 
 # --- Config ---
 OPENAI_API_KEY = config.Settings.openai_api_key
 #
 OPENAI_ADV_API_KEY = config.Settings.openai_adv_api_key
 CV_MAX_MB = config.Settings.cv_max_mb
-CHUNK = 1024*1024 #1 MB
+CHUNK = config.Settings.chunk
 
 PRIMARY_MODEL = config.Settings.primary_model
 ESCALATION_MODEL = config.Settings.escalation_model
@@ -599,7 +599,7 @@ router = APIRouter()
 
 # ===Jobs implementation===
 
-processes :Dict[int,str]= {}
+processes :Dict[str,str]= {}
 JOBS: Dict[str, Dict[str, Any]] = {}
 JOB_TTL_SECONDS = 60 * 60  # keep finished jobs for 1h
 
@@ -676,7 +676,7 @@ def _require_job(proc_id: str) -> Dict[str, Any]:
         raise HTTPException(status_code=404, detail="Process ID not found.")
     return job
 
-def _attach_user_process(user_id: int, proc_id: str):
+def _attach_user_process(user_id: str, proc_id: str):
     # You asked to maintain this mapping
     processes[user_id] = proc_id
 
@@ -750,7 +750,7 @@ async def score_resume_function(
             client,
             model,
             store: bool = False,
-            user_id:int = None,
+            user_id:str = None,
             db: Optional[Session] = None,
     ):
 
@@ -813,12 +813,7 @@ async def score_resume_function(
     overall = min(100, max(0, overall))  # clamp
 
     if store:
-            if not user_id:
-                raise HTTPException(status_code=400, detail="Missing user_id for DB storage")
-
-            row =  db.query(ResumeScores).filter(ResumeScores.user_id == user_id).first()
-
-
+            row =  db.query(Profile).filter(Profile.user_id == user_id).first()
             # compute component scores safely
             education = float(comps.get("education", 0.0))
             experience = float(comps.get("experience", 0.0))
@@ -831,15 +826,15 @@ async def score_resume_function(
                 row.experience_score = experience
                 row.skills_score = skills
                 row.projects_score = projects
-                db.add(row)
             else:
-                new_row = ResumeScores(
+                new_row = Profile(
                     user_id=user_id,
                     overall_score=overall,
                     education_score=education,
                     experience_score=experience,
                     skills_score=skills,
                     projects_score=projects,
+                    profile_json= None
                 )
                 db.add(new_row)
             db.commit()
@@ -878,7 +873,7 @@ async def linkedin_resume_function(file, client, model):
 
     parsed = result.get("parsed") or {}
     payload = {"profile": parsed}
-    return JSONResponse(content=json.loads(json.dumps(payload, ensure_ascii=False)))
+    return payload
 
 def _call_openai_model_sync(prompt,response,ruleset,client, text, weights, model) -> Dict[str, Any]:
     # your current blocking implementation lives here
@@ -914,26 +909,22 @@ def health() -> Dict[str, Any]:
 
 @limiter.limit("2/hour")
 @router.post("/resume/score", response_model=ScoreResponseModel)
-async def score_resume(file: UploadFile = File(...)):
+async def score_resume(request : Request,file: UploadFile = File(...),db: Session = Depends(get_session)):
+    get_user_id(request,db)
     return await score_resume_function(file, get_openai_client(), PRIMARY_MODEL)
 
 @router.put("/resume/score", response_model=ScoreResponseModel)
 async def score_resume(request : Request,file: UploadFile = File(...),db: Session = Depends(get_session)):
-    user_id = int(getattr(request.state, "user_id", None))  # set by middleware after JWT checks
+    user_id = get_user_id(request,db)
     return await score_resume_function(file, get_openai_client(), PRIMARY_MODEL,True,user_id,db)
 
 @limiter.limit("2/hour")
 @router.post("/resume/adv/score_async")
-async def score_resume_adv_start(request: Request, file: UploadFile = File(...)):
+async def score_resume_adv_start(request : Request,file: UploadFile = File(...),db: Session = Depends(get_session)):
     """
     Start async scoring on ADV models. Returns proc_id immediately.
     """
-    user_id = int(getattr(request.state, "user_id", None))  # set by middleware after JWT checks
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Unauthorized")
-
-    if not file:
-        raise HTTPException(status_code=400, detail="No file uploaded.")
+    user_id = get_user_id(request,db)
 
     data = await file.read()
     filename = file.filename or "resume"
@@ -949,17 +940,17 @@ async def score_resume_adv_start(request: Request, file: UploadFile = File(...))
 
 @limiter.limit("2/hour")
 @router.get("/resume/task_status/{task_id}")
-def score_get_task_status(task_id: str, request: Request):
+def score_get_task_status(task_id: str, request: Request,db: Session = Depends(get_session)):
     """
     Poll job status by proc_id.
     """
-    user_id = int(getattr(request.state, "user_id", None))
+    user_id = get_user_id(request, db)
     if not user_id:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     job = _require_job(task_id)
 
-    if processes.get(user_id) != id:
+    if processes.get(user_id) != task_id:
         raise HTTPException(status_code=403, detail="Not allowed for this process id.")
 
     payload = {
@@ -978,11 +969,11 @@ def score_get_task_status(task_id: str, request: Request):
 
 @limiter.limit("2/hour")
 @router.get("/resume/result/{task_id}")
-def score_get_result(task_id: str, request: Request):
+def score_get_result(task_id: str, request: Request,db: Session = Depends(get_session)):
     """
     Return final result by proc_id. 404 if not ready.
     """
-    user_id = int(getattr(request.state, "user_id", None))
+    user_id = get_user_id(request, db)
     if not user_id:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
@@ -996,8 +987,13 @@ def score_get_result(task_id: str, request: Request):
 
 @limiter.limit("2/hour")
 @router.post("/resume/cv", response_model=ScoreResponseModel)
-async def get_skills(file: UploadFile = File(...)):
-    return await linkedin_resume_function(file, get_openai_client(), PRIMARY_MODEL)
+async def cv(request:Request ,file: UploadFile = File(...),db: Session = Depends(get_session)):
+     user_id = get_user_id(request,db)
+     profile = db.query(Profile).filter(Profile.user_id == user_id).first()
+     payload = await linkedin_resume_function(file, get_openai_client(), PRIMARY_MODEL)
+     profile.profile_json = json.dumps(payload)
+     db.commit()
+     return JSONResponse(content=json.loads(json.dumps(payload, ensure_ascii=False)))
 
 
 # curl -s -X POST "http://127.0.0.1:9000/v2/parser/resume/score" -F "file=@C:\Users\Calin\Downloads\cv.pdf"

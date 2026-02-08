@@ -65,7 +65,7 @@ class Profile(Base):
     experience_score: Mapped[float] = mapped_column(DOUBLE_PRECISION, nullable=False)
     education_score: Mapped[float] = mapped_column(DOUBLE_PRECISION, nullable=False)
     skills_score: Mapped[float] = mapped_column(DOUBLE_PRECISION, nullable=False)
-    profile_json: Mapped[str] = mapped_column(JSONB, nullable=False)
+    profile_json: Mapped[str | None] = mapped_column(JSONB, nullable=False)
 
 class EmailToken(Base):
     __tablename__ = "email_verification"
