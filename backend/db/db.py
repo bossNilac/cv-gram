@@ -25,7 +25,7 @@ def _compose_sqla_url() -> str:
 
     if not jdbc:
         # final fallback (local dev)
-        return "postgresql+psycopg://postgres:2912@localhost:5432/postgres"
+        return "postgresql+psycopg://postgres:2912@localhost:5433/CVGram"
 
     # strip 'jdbc:' prefix if present
     if jdbc.startswith("jdbc:"):
@@ -35,8 +35,8 @@ def _compose_sqla_url() -> str:
     # e.g. postgresql://host:5432/dbname
     parsed = urlparse(jdbc)
     host = parsed.hostname or "localhost"
-    port = parsed.port or 5432
-    dbname = (parsed.path or "/elitescore").lstrip("/")
+    port = parsed.port or 5433
+    dbname = (parsed.path or "/CVGram").lstrip("/")
 
     # Build SQLAlchemy URL for psycopg3
     user = user or "postgres"

@@ -28,6 +28,7 @@ class Base(DeclarativeBase):
 
 class Sessions(Base):
     __tablename__ = "sessions"
+    __allow_unmapped__ = True
     id: Mapped[str] = mapped_column(UUID, primary_key=True)
     user_id: Mapped[str] = mapped_column(UUID, primary_key=True)
     token_hash: Mapped[bytes] = mapped_column(BYTEA, nullable=False)
@@ -40,15 +41,16 @@ class Sessions(Base):
 
 class User(Base):
     __tablename__ = "users"
-    uuid: Mapped[str] = mapped_column(UUID, primary_key=True)
+    id: Mapped[str] = mapped_column(UUID, primary_key=True)
     email: Mapped[str] = mapped_column(Text, nullable=False)
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
-    is_Active: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False)
     created_at: Mapped[str] = mapped_column(TIMESTAMP, nullable=False)
     updated_at: Mapped[str] = mapped_column(TIMESTAMP, nullable=False)
 
 class PasswordToken(Base):
     __tablename__ = "password_reset_tokens"
+    __allow_unmapped__ = True
     id: Mapped[str] = mapped_column(UUID, primary_key=True)
     user_id: Mapped[str] = mapped_column(UUID, primary_key=True)
     token_hash: Mapped[bytes] = mapped_column(BYTEA, nullable=False)
@@ -59,7 +61,6 @@ class PasswordToken(Base):
 class Profile(Base):
     __tablename__ = "profile"
     user_id: Mapped[str] = mapped_column(UUID, primary_key=True)
-
     overall_score: Mapped[float] = mapped_column(DOUBLE_PRECISION, nullable=False)
     projects_score: Mapped[float] = mapped_column(DOUBLE_PRECISION, nullable=False)
     experience_score: Mapped[float] = mapped_column(DOUBLE_PRECISION, nullable=False)
@@ -69,6 +70,7 @@ class Profile(Base):
 
 class EmailToken(Base):
     __tablename__ = "email_verification"
+    __allow_unmapped__ = True
     id: Mapped[str] = mapped_column(UUID, primary_key=True)
     user_id: Mapped[str] = mapped_column(UUID, primary_key=True)
     token_hash: Mapped[bytes] = mapped_column(BYTEA, nullable=False)

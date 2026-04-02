@@ -13,7 +13,7 @@ class Settings:
     mail_from: str = os.getenv("MAIL_FROM", "CVGram <no-reply@cvgram.local>")
 
     app_base_url: str = os.getenv("APP_BASE_URL", "http://localhost:8000")
-    frontend_base_url: str = os.getenv("FRONTEND_BASE_URL", "http://localhost:3000")
+    frontend_base_url: str = os.getenv("FRONTEND_BASE_URL", "http://localhost:5173")
     support_email: str = os.getenv("SUPPORT_EMAIL", "support@cvgram.local")
 
     openai_api_key = os.getenv("OPENAI_API_KEY", "")

@@ -1,5 +1,4 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import HomeView from '../views/HomeView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -12,10 +11,62 @@ const router = createRouter({
     {
       path: '/login',
       name: 'login',
-      // route level code-splitting
-      // this generates a separate chunk (About.[hash].js) for this route
-      // which is lazy-loaded when the route is visited.
       component: () => import('../views/LoginView.vue'),
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: () => import('../views/RegisterView.vue'),
+    },
+    {
+      path: '/forgot',
+      name: 'forgot',
+      component: () => import('../views/ForgotPassword.vue'),
+    },
+    {
+      path: '/reset-password',
+      name: 'reset-password',
+      component: () => import('../views/ResetPasswordView.vue'),
+    },
+    {
+      path: '/password/reset/:token?',
+      name: 'reset-password-legacy',
+      component: () => import('../views/ResetPasswordView.vue'),
+    },
+    {
+      path: '/verify-email',
+      name: 'verify-email',
+      component: () => import('../views/VerifyEmailView.vue'),
+    },
+    {
+      path: '/verify-mail/:token?',
+      name: 'verify-email-legacy',
+      component: () => import('../views/VerifyEmailView.vue'),
+    },
+    {
+      path: '/dashboard',
+      name: 'dashboard',
+      component: () => import('../views/DashboardView.vue'),
+    },
+    {
+      path: '/sessions',
+      name: 'sessions',
+      component: () => import('../views/SessionsView.vue'),
+    },
+    {
+      path: '/score',
+      name: 'score',
+      component: () => import('../views/ScoreResumeView.vue'),
+    },
+    {
+      path: '/profile/:userId?',
+      name: 'profile',
+      component: () => import('../views/ProfileView.vue'),
+    },
+    {
+      path: '/search',
+      name: 'search',
+      component: () => import('../views/SearchProfilesView.vue'),
     },
   ],
 })

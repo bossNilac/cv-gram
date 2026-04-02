@@ -43,12 +43,12 @@ h3 {
 @media (min-width: 1024px) {
   .item {
     margin-top: 0;
-    padding: 0.4rem 0 1rem calc(var(--section-gap) / 2);
+    padding: 0.6rem 0 1.35rem 4.75rem;
   }
 
   i {
     top: calc(50% - 25px);
-    left: -26px;
+    left: 0;
     position: absolute;
     border: 1px solid var(--color-border);
     background: var(--color-background);
@@ -61,7 +61,7 @@ h3 {
     content: ' ';
     border-left: 1px solid var(--color-border);
     position: absolute;
-    left: 0;
+    left: 24px;
     bottom: calc(50% + 25px);
     height: calc(50% - 25px);
   }
@@ -70,7 +70,7 @@ h3 {
     content: ' ';
     border-left: 1px solid var(--color-border);
     position: absolute;
-    left: 0;
+    left: 24px;
     top: calc(50% + 25px);
     height: calc(50% - 25px);
   }

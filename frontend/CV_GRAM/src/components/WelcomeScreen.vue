@@ -24,7 +24,7 @@ onUnmounted(() => {
     </h3>
     <h4>
       Me and a former university colleague tried building a tech startup focused on this, but we had different visions,
-      so we split :(. My part of the work now became CVGram.
+      so we split :( . My part of the work now became CVGram.
     </h4>
   </div>
 </template>

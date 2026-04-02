@@ -1,4 +1,5 @@
-from typing import List, Optional
+import json
+from typing import Any, List, Optional
 
 from fastapi import APIRouter, Depends, Request, HTTPException
 from fastapi.params import Query
@@ -6,7 +7,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from backend.db.db import get_session
-from backend.main import limiter
+from backend.services.limiter import limiter
 from backend.models.classes import Profile
 from backend.models.dto_classes import ResumeScoresIn, ResumeScoresOut, ProfileOut, SearchOut
 from backend.routers.auth_routers.auth_router import get_user_id
@@ -20,6 +21,44 @@ def _compute_overall(dto: ResumeScoresIn) -> float:
     return float(
         (dto.projects_score + dto.experience_score + dto.education_score + dto.skills_score) / 4.0
     )
+
+def _serialize_scores(row: Profile) -> ResumeScoresOut:
+    return ResumeScoresOut(
+        user_id=str(row.user_id),
+        overall_score=float(row.overall_score),
+        projects_score=float(row.projects_score),
+        experience_score=float(row.experience_score),
+        education_score=float(row.education_score),
+        skills_score=float(row.skills_score),
+    )
+
+def _serialize_profile(row: Profile) -> ProfileOut:
+    profile_json = _normalize_profile_json(row.profile_json)
+
+    return ProfileOut(
+        user_id=str(row.user_id),
+        overall_score=float(row.overall_score),
+        projects_score=float(row.projects_score),
+        experience_score=float(row.experience_score),
+        education_score=float(row.education_score),
+        skills_score=float(row.skills_score),
+        profile_json=profile_json,
+    )
+
+def _normalize_profile_json(value: Any) -> dict | None:
+    if value is None:
+        return None
+
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except json.JSONDecodeError:
+            return None
+
+    if isinstance(value, dict):
+        return value
+
+    return None
 
 def _search_profiles(
     db: Session,
@@ -103,19 +142,12 @@ def get_resume_scores(
     if not row:
         raise HTTPException(status_code=404, detail="No resume scores found")
 
-    return ResumeScoresOut(
-        user_id=row.user_id,
-        overall_score=float(row.overall_score),
-        projects_score=float(row.projects_score),
-        experience_score=float(row.experience_score),
-        education_score=float(row.education_score),
-        skills_score=float(row.skills_score),
-    )
+    return _serialize_scores(row)
 
 @limiter.limit("5/minute")
 @router.get("/resume-scores/{user_id}", response_model=ResumeScoresOut)
 def get_resume_scores_by_id(
-    user_id: int,
+    user_id: str,
     request: Request,
     db: Session = Depends(get_session),
 ):
@@ -128,40 +160,7 @@ def get_resume_scores_by_id(
     if not row:
         raise HTTPException(status_code=404, detail="No resume scores found")
 
-    return ResumeScoresOut(
-        user_id=row.user_id,
-        overall_score=float(row.overall_score),
-        projects_score=float(row.projects_score),
-        experience_score=float(row.experience_score),
-        education_score=float(row.education_score),
-        skills_score=float(row.skills_score),
-    )
-
-@limiter.limit("5/minute")
-@router.get("/{user_id}", response_model=ProfileOut)
-def get_resume_scores_by_id(
-    user_id: int,
-    request: Request,
-    db: Session = Depends(get_session),
-):
-    """
-    Return the resume scores for the given user_id.
-    """
-    user_id = get_user_id(request, db)
-    row = db.query(Profile).filter(Profile.user_id == user_id).first()
-
-    if not row:
-        raise HTTPException(status_code=404, detail="No resume scores found")
-
-    return ProfileOut(
-        user_id=row.user_id,
-        overall_score=float(row.overall_score),
-        projects_score=float(row.projects_score),
-        experience_score=float(row.experience_score),
-        education_score=float(row.education_score),
-        skills_score=float(row.skills_score),
-        profile_json=row.profile_json,
-    )
+    return _serialize_scores(row)
 
 @router.get("/search/", response_model=List[SearchOut])
 def search_profiles(
@@ -190,7 +189,7 @@ def search_profiles(
     skills_min: Optional[float] = Query(default=None),
     skills_max: Optional[float] = Query(default=None),
 ):
-    _user_id, _session = get_user_id(request, db)
+    get_user_id(request, db)
 
     rows = _search_profiles(
         db,
@@ -214,14 +213,43 @@ def search_profiles(
 
     return [
         SearchOut(
-            user_id=row["user_id"],
+            user_id=str(row["user_id"]),
             overall_score=float(row["overall_score"]),
             projects_score=float(row["projects_score"]),
             experience_score=float(row["experience_score"]),
             education_score=float(row["education_score"]),
             skills_score=float(row["skills_score"]),
-            profile_json=row["profile_json"],
+            profile_json=_normalize_profile_json(row["profile_json"]),
             rank=float(row["rank"]) if row["rank"] is not None else 0.0,
         )
         for row in rows
     ]
+
+@limiter.limit("5/minute")
+@router.get("/me", response_model=ProfileOut)
+def get_my_profile(
+    request: Request,
+    db: Session = Depends(get_session),
+):
+    user_id = get_user_id(request, db)
+    row = db.query(Profile).filter(Profile.user_id == user_id).first()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="No profile found")
+
+    return _serialize_profile(row)
+
+@limiter.limit("5/minute")
+@router.get("/user/{user_id}", response_model=ProfileOut)
+def get_profile_by_user_id(
+    user_id: str,
+    request: Request,
+    db: Session = Depends(get_session),
+):
+    get_user_id(request, db)
+    row = db.query(Profile).filter(Profile.user_id == user_id).first()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="No profile found")
+
+    return _serialize_profile(row)

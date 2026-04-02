@@ -5,22 +5,24 @@ import AppPageShell from '@/components/AppPageShell.vue'
 import { authAPI } from '../../util/apis.js'
 
 const email = ref('')
-const password = ref('')
 const errorMsg = ref('')
+const successMsg = ref('')
 const loading = ref(false)
 
-async function doLogin() {
+async function requestReset() {
   if (loading.value) {
     return
   }
 
   errorMsg.value = ''
+  successMsg.value = ''
   loading.value = true
 
   try {
-    await authAPI.login(email.value, password.value)
+    await authAPI.forgotPassword(email.value)
+    successMsg.value = 'If the address exists, a reset email has been sent.'
   } catch (error) {
-    errorMsg.value = error.message || 'Login failed'
+    errorMsg.value = error.message || 'Password reset failed'
   } finally {
     loading.value = false
   }
@@ -28,27 +30,26 @@ async function doLogin() {
 </script>
 
 <template>
-  <AppPageShell title="Login." subtitle="Access the authenticated part of CV GRAM and continue where your CV data lives.">
-    <form class="form-stack" @submit.prevent="doLogin">
+  <AppPageShell title="Reset." subtitle="Request a password reset link for an existing account.">
+    <form class="form-stack" @submit.prevent="requestReset">
       <label class="field-label">
         Email
         <input v-model="email" class="text-input" placeholder="name@example.com" type="email" />
       </label>
 
-      <label class="field-label">
-        Password
-        <input v-model="password" class="text-input" placeholder="Your password" type="password" />
-      </label>
-
       <div class="button-row">
         <button class="primary-button" type="submit">
-          {{ loading ? 'Logging in...' : 'Login' }}
+          {{ loading ? 'Sending...' : 'Reset Password' }}
         </button>
       </div>
 
       <div class="muted">
         <p>No account? <RouterLink to="/register">Register</RouterLink></p>
-        <RouterLink to="/forgot">Forgot your password?</RouterLink>
+        <p>Remembered it? <RouterLink to="/login">Login</RouterLink></p>
+      </div>
+
+      <div v-if="successMsg" class="status-message success">
+        {{ successMsg }}
       </div>
 
       <div v-if="errorMsg" class="status-message error">

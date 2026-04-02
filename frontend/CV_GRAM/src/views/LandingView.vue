@@ -5,26 +5,34 @@ import { RouterLink } from 'vue-router'
 </script>
 
 <template>
-  <header>
-    <img alt="App logo" class="logo" src="@/assets/logo.svg" width="200" height="300" />
+  <section class="landing-layout">
+    <header>
+      <img alt="App logo" class="logo" src="@/assets/logo.svg" width="200" height="300" />
 
-    <div class="wrapper">
-      <WelcomeScreen />
+      <div class="wrapper">
+        <WelcomeScreen />
 
-      <nav>
-        <a href="https://github.com">Github</a>
-        <RouterLink to="/login">Login</RouterLink>
-        <RouterLink to="/register">Register</RouterLink>
-      </nav>
-    </div>
-  </header>
+        <nav>
+          <a href="https://github.com">Github</a>
+          <RouterLink to="/login">Login</RouterLink>
+          <RouterLink to="/register">Register</RouterLink>
+        </nav>
+      </div>
+    </header>
 
-  <main>
-    <TechnologiesComponent />
-  </main>
+    <main>
+      <TechnologiesComponent />
+    </main>
+  </section>
 </template>
 
 <style scoped>
+.landing-layout {
+  width: 100%;
+  max-width: 1360px;
+  margin: 0 auto;
+}
+
 header {
   line-height: 1.5;
   max-height: 100vh;
@@ -60,10 +68,19 @@ nav a:first-of-type {
 }
 
 @media (min-width: 1024px) {
+  .landing-layout {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    align-items: center;
+    gap: 2.5rem;
+    padding: 0 3rem;
+  }
+
   header {
     display: flex;
     place-items: center;
-    padding-right: calc(var(--section-gap) / 2);
+    padding-right: 1rem;
   }
 
   .logo {
@@ -80,9 +97,12 @@ nav a:first-of-type {
     text-align: left;
     margin-left: -1rem;
     font-size: 1rem;
-
     padding: 1rem 0;
     margin-top: 1rem;
+  }
+
+  main {
+    min-width: 0;
   }
 }
 </style>

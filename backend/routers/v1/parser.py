@@ -32,7 +32,7 @@ from starlette.requests import Request
 
 from backend import config
 from backend.db.db import get_session
-from backend.main import limiter
+from backend.services.limiter import limiter
 from backend.models.classes import Profile
 from backend.models.dto_classes import ScoreResponseModel
 from backend.routers.auth_routers.auth_router import get_user_id
@@ -991,7 +991,8 @@ async def cv(request:Request ,file: UploadFile = File(...),db: Session = Depends
      user_id = get_user_id(request,db)
      profile = db.query(Profile).filter(Profile.user_id == user_id).first()
      payload = await linkedin_resume_function(file, get_openai_client(), PRIMARY_MODEL)
-     profile.profile_json = json.dumps(payload)
+     if profile:
+         profile.profile_json = payload
      db.commit()
      return JSONResponse(content=json.loads(json.dumps(payload, ensure_ascii=False)))
 

@@ -1,9 +1,10 @@
-from typing import List, Dict, Any
+from datetime import datetime
+from typing import Dict, Any
 
 from pydantic import BaseModel, constr, EmailStr, Field
-from pydantic.v1 import confloat
+from typing_extensions import Annotated
 
-Score = confloat(ge=0.0)  # adjust bounds if you cap to 1.0 or 100.0
+Score = Annotated[float, Field(ge=0, le=100)]
 Password = constr(min_length=8, max_length=128)
 
 class RegisterIn(BaseModel):
@@ -42,7 +43,7 @@ class ProfileOut(BaseModel):
     experience_score: float
     education_score: float
     skills_score: float
-    profile_json: str
+    profile_json: Dict[str, Any] | None
 
 class SearchOut(BaseModel):
     user_id: str
@@ -51,14 +52,23 @@ class SearchOut(BaseModel):
     experience_score: float
     education_score: float
     skills_score: float
-    profile_json: str
+    profile_json: Dict[str, Any] | None
     rank: float
 
 class MeOut(BaseModel):
     email: str
-    is_Active: bool
-    created_at: str
-    updated_at: str
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+class SessionOut(BaseModel):
+    id: str
+    user_id: str
+    created_at: datetime
+    expires_at: datetime
+    revoked_at: datetime | None
+    ip: str | None
+    agent: str | None
 
 class ResumeScoresIn(BaseModel):
     # Require the 4 components; overall is optional (will compute if omitted)

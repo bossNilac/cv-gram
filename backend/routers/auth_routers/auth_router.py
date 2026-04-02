@@ -1,4 +1,4 @@
-import datetime
+import datetime as dt
 import hashlib
 import secrets
 import uuid
@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from starlette.responses import Response
 
 from backend.db.db import get_session
-from backend.main import limiter
+from backend.services.limiter import limiter
 from backend.models.classes import User, PasswordToken, EmailToken, Sessions
 from backend.models.dto_classes import *
 from backend.services.email import notify_password_reset, notify_new_login, notify_welcome
@@ -23,8 +23,12 @@ router = APIRouter()
 # Config / helpers
 # ----------------------------
 
-def utcnow() -> datetime.datetime:
-    return datetime.datetime.now(datetime.timezone.utc)
+def utcnow() -> dt.datetime:
+    return dt.datetime.now(dt.timezone.utc)
+
+
+def _public_base_url(request: Request) -> str:
+    return str(request.base_url).rstrip("/")
 
 def _create_session(
     *,
@@ -43,8 +47,8 @@ def _create_session(
         id=str(uuid.uuid4()),
         user_id=user_id,
         token_hash=token_hash,
-        ip=request.client.host if request.client else None,
-        agent=request.headers.get("user-agent"),
+        ip=str(request.client.host) if str(request.client) else None,
+        agent=str(request.headers.get("user-agent")),
         revoked_at=None,
         expires_at=expires_at,
         created_at=now,
@@ -109,16 +113,27 @@ def _check_active_session(request, db):
 
 def get_user_id(request , db):
     session = _check_active_session(request, db)
-    user = db.query(User).filter(User.uuid == session.user_id).first()
+    user = db.query(User).filter(User.id == session.user_id).first()
     if not user :
         raise HTTPException(status_code=401, detail="Not authenticated")
-    if not user.is_Active:
+    if not user.is_active:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    return user.uuid , session
+    return user.id
+
+def _serialize_session(session: Sessions) -> SessionOut:
+    return SessionOut(
+        id=str(session.id),
+        user_id=str(session.user_id),
+        created_at=session.created_at,
+        expires_at=session.expires_at,
+        revoked_at=session.revoked_at,
+        ip=session.ip,
+        agent=session.agent,
+    )
 
 def _get_user_id_from_email(db: Session, email: str) -> str | None:
     user = db.query(User).filter(User.email == email).first()
-    return user.uuid if user else None
+    return user.id if user else None
 
 argon2_hasher = PasswordHasher()
 
@@ -139,18 +154,18 @@ def register(request: Request,payload: RegisterIn, db: Session = Depends(get_ses
     if db.query(User).filter(User.email == payload.email).first():
         raise HTTPException(status_code=409, detail="Email already registered")
     user = User(
-        uuid=str(uuid.uuid4()),
+        id=str(uuid.uuid4()),
         email=payload.email,
         password_hash=hash_password(payload.password),
         created_at=utcnow(),
         updated_at=utcnow(),
-        is_Active=False,
+        is_active=False,
     )
     db.add(user)
     db.commit()
 
-    token = _create_token(db=db,user_id=user.uuid,model_type='email')
-    notify_welcome(user.email,token)
+    token = _create_token(db=db,user_id=user.id,model_type='email')
+    notify_welcome(user.email, token, _public_base_url(request))
 
     return RegisterOut(email=user.email)
 
@@ -166,16 +181,23 @@ def login(request: Request,payload: LoginIn, db: Session = Depends(get_session))
         .first()
     )
     if not user :
-        if (not user.is_Active
-                or not verify_password(payload.password, str(user.password_hash))):
-            raise HTTPException(status_code=401, detail="Invalid credentials")
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    if (not user.is_active
+            or not verify_password(payload.password, str(user.password_hash))):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
-
-    session = _create_session(db=db, user_id=str(user.uuid), request=request)
+    print(user.is_active)
+    print(verify_password(payload.password, str(user.password_hash)))
+    session = _create_session(db=db, user_id=user.id, request=request)
     db.commit()
 
-    notify_new_login(email=user.email,when_text=utcnow(),device_text=request.client.host,reset_link='password/reset')
+    notify_new_login(
+        email=user.email,
+        when_text=utcnow(),
+        device_text=request.client.host,
+        reset_link='/forgot',
+        base_url=_public_base_url(request),
+    )
     response = Response(status_code=200, content="ok")
     response.set_cookie("session",session[1],#raw token
                         expires=session[0].expires_at,
@@ -200,11 +222,11 @@ def logout(request: Request,db: Session = Depends(get_session)):
 @limiter.limit("20/minute")
 @router.post("/me",response_model=MeOut, status_code=200)
 def me(request: Request,db: Session = Depends(get_session)):
-    user_id = get_user_id(request, db)[0]
-    user = db.query(User).filter(User.is_Active == True).filter(User.uuid == user_id).first()
+    user_id = get_user_id(request, db)
+    user = db.query(User).filter(User.is_active == True).filter(User.id == user_id).first()
     output = MeOut(
         email=user.email,
-        is_Active=user.is_Active,
+        is_active=user.is_active,
         created_at=user.created_at,
         updated_at=user.updated_at,
     )
@@ -220,12 +242,12 @@ def forgot(request: Request,payload:ResetRequestIn,
         return Response(status_code=200, content="ok")
     password_token = _create_token(db=db, user_id=_id,model_type='password')
     db.commit()
-    notify_password_reset(payload.email,password_token)
+    notify_password_reset(payload.email, password_token, _public_base_url(request))
     return Response(status_code=200, content="ok")
 
 @limiter.limit("5/minute")
 @router.post("/password/reset")
-def forgot(payload:ResetPasswordIn,
+def forgot(request: Request,payload:ResetPasswordIn,
            db: Session = Depends(get_session)):
 
     now = utcnow()
@@ -233,11 +255,11 @@ def forgot(payload:ResetPasswordIn,
     db_token = (db.query(PasswordToken).filter(PasswordToken.expires_at > now).filter(PasswordToken.used_at.is_(None))
                   .filter(PasswordToken.token_hash == password_token_hash).first())
     if not db_token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
 
-    user = db.query(User).filter(User.uuid == db_token.user_id).first()
+    user = db.query(User).filter(User.id == db_token.user_id).first()
     if not user:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token")
 
     user.password_hash = argon2_hasher.hash(payload.new_password)
     user.updated_at = now
@@ -270,7 +292,7 @@ def forgot(payload:ResetPasswordIn,
 @router.post("/logout_all")
 def logout(request: Request,db: Session = Depends(get_session)):
 
-    user_id = get_user_id(request, db)[0]
+    user_id = get_user_id(request, db)
     now = utcnow()
     (
         db.query(Sessions)
@@ -289,7 +311,7 @@ def logout(request: Request,db: Session = Depends(get_session)):
 @router.delete("/sessions/{_id}")
 def logout(_id,request: Request,db: Session = Depends(get_session)):
 
-    user_id = get_user_id(request, db)[0]
+    user_id = get_user_id(request, db)
     now = utcnow()
     session = _check_active_session(request, db)
     response = Response(status_code=200, content="ok")
@@ -309,9 +331,9 @@ def logout(_id,request: Request,db: Session = Depends(get_session)):
     return response
 
 @limiter.limit("5/minute")
-@router.get("/sessions")
+@router.get("/sessions", response_model=list[SessionOut])
 def get_sessions(request: Request,db: Session = Depends(get_session)):
-    user_id = get_user_id(request, db)[0]
+    user_id = get_user_id(request, db)
     now = utcnow()
     output = (
         db.query(Sessions)
@@ -319,7 +341,7 @@ def get_sessions(request: Request,db: Session = Depends(get_session)):
         .filter(Sessions.revoked_at.is_(None))
         .filter(Sessions.expires_at > now).all()
     )
-    return output
+    return [_serialize_session(session) for session in output]
 
 @limiter.limit("5/minute")
 @router.post("/verify-mail")
@@ -337,11 +359,11 @@ def verify(payload:VerifyEmailIn,request: Request,db: Session = Depends(get_sess
         raise HTTPException(status_code=400, detail="Invalid token")
 
     token.used_at = utcnow()
-    user = db.query(User).filter(User.uuid == token.user_id).first()
+    user = db.query(User).filter(User.id == token.user_id).first()
 
     if not user:
         raise HTTPException(status_code=400, detail="Invalid token")
-    user.is_Active = True
+    user.is_active = True
     db.commit()
 
     return Response(status_code=200, content="ok")

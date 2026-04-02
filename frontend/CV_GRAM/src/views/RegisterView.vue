@@ -7,20 +7,23 @@ import { authAPI } from '../../util/apis.js'
 const email = ref('')
 const password = ref('')
 const errorMsg = ref('')
+const successMsg = ref('')
 const loading = ref(false)
 
-async function doLogin() {
+async function doRegister() {
   if (loading.value) {
     return
   }
 
   errorMsg.value = ''
+  successMsg.value = ''
   loading.value = true
 
   try {
-    await authAPI.login(email.value, password.value)
+    const result = await authAPI.register(email.value, password.value)
+    successMsg.value = `Account created for ${result.email}. Check your email to verify the account before logging in.`
   } catch (error) {
-    errorMsg.value = error.message || 'Login failed'
+    errorMsg.value = error.message || 'Register failed'
   } finally {
     loading.value = false
   }
@@ -28,8 +31,8 @@ async function doLogin() {
 </script>
 
 <template>
-  <AppPageShell title="Login." subtitle="Access the authenticated part of CV GRAM and continue where your CV data lives.">
-    <form class="form-stack" @submit.prevent="doLogin">
+  <AppPageShell title="Register." subtitle="Create an account first, then verify your email so the protected CV tools can be used.">
+    <form class="form-stack" @submit.prevent="doRegister">
       <label class="field-label">
         Email
         <input v-model="email" class="text-input" placeholder="name@example.com" type="email" />
@@ -37,18 +40,21 @@ async function doLogin() {
 
       <label class="field-label">
         Password
-        <input v-model="password" class="text-input" placeholder="Your password" type="password" />
+        <input v-model="password" class="text-input" placeholder="At least 8 characters" type="password" />
       </label>
 
       <div class="button-row">
         <button class="primary-button" type="submit">
-          {{ loading ? 'Logging in...' : 'Login' }}
+          {{ loading ? 'Creating account...' : 'Sign Up' }}
         </button>
       </div>
 
       <div class="muted">
-        <p>No account? <RouterLink to="/register">Register</RouterLink></p>
-        <RouterLink to="/forgot">Forgot your password?</RouterLink>
+        <p>Already have an account? <RouterLink to="/login">Login</RouterLink></p>
+      </div>
+
+      <div v-if="successMsg" class="status-message success">
+        {{ successMsg }}
       </div>
 
       <div v-if="errorMsg" class="status-message error">
