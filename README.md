@@ -64,6 +64,62 @@ AI / processing:
 - `/search` search saved profiles
 - `/sessions` manage active sessions
 
+## Screenshots
+
+### Login
+
+The login screen provides the main entry point into the authenticated workspace and links directly to registration and password reset flows.
+
+![Login screen](screenshots/Screenshot%202026-04-02%20222337.png)
+
+### Register
+
+The registration screen keeps onboarding minimal: email, password, and a short note explaining that email verification is required before protected features can be used.
+
+![Register screen](screenshots/Screenshot%202026-04-02%20222348.png)
+
+### Password Reset Request
+
+This screen starts the password recovery flow by allowing an existing user to request a reset link by email.
+
+![Password reset request screen](screenshots/Screenshot%202026-04-02%20222357.png)
+
+### Dashboard / Workspace
+
+The workspace dashboard summarizes the account state, the latest saved CV score snapshot, and the broader workflow supported by the application.
+
+![Workspace dashboard](screenshots/Screenshot%202026-04-02%20222407.png)
+
+### CV Review Upload
+
+The CV review screen supports document upload and exposes the main actions: review a CV, save the score, run an advanced review, and generate a profile.
+
+![CV review upload state](screenshots/Screenshot%202026-04-02%20222417.png)
+
+### CV Review Results
+
+After processing, the review screen displays the generated score breakdown together with highlights, strengths, and weaknesses extracted from the uploaded CV.
+
+![CV review results](screenshots/Screenshot%202026-04-02%20222457.png)
+
+### Profile View
+
+The profile page turns CV-derived data into a structured profile with score summary, identity details, skill signals, experience history, and education.
+
+![Profile view](screenshots/Screenshot%202026-04-02%20222512.png)
+
+### Search
+
+The search page combines text filters and score thresholds to surface stored profiles and make comparison easier.
+
+![Search page](screenshots/Screenshot%202026-04-02%20222523.png)
+
+### Sessions / Security
+
+The sessions screen gives users visibility into active device sessions and lets them revoke individual sessions or sign out everywhere.
+
+![Sessions page](screenshots/Screenshot%202026-04-02%20222534.png)
+
 ## Local Development
 
 ### Frontend only
