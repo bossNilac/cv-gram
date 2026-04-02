@@ -161,7 +161,7 @@ Verification and password reset emails now derive their public base URL from the
 
 This SQL file contains all the necessary commands to initialize it to a new server:
 
-- [design/database.sql](design\database.sql)
+- [design/database.sql](design/database.sql)
 
 ## Search Test Data
 
