@@ -39,16 +39,16 @@ AI / processing:
 
 ## Project Structure
 
-- [frontend/CV_GRAM](/C:/Users/Calin/PycharmProjects/CVgram/frontend/CV_GRAM): Vue application
-- [backend](/C:/Users/Calin/PycharmProjects/CVgram/backend): FastAPI API, DB models, routers, services
-- [run_fullstack.py](/C:/Users/Calin/PycharmProjects/CVgram/run_fullstack.py): builds the frontend into the backend and runs the app on one port
+- [frontend/CV_GRAM](frontend/CV_GRAM): Vue application
+- [backend](backend): FastAPI API, DB models, routers, services
+- [run_fullstack.py](run_fullstack.py): builds the frontend into the backend and runs the app on one port
 
 ## Main Backend Areas
 
-- [backend/main.py](/C:/Users/Calin/PycharmProjects/CVgram/backend/main.py): app entrypoint and frontend static serving
-- [backend/routers/auth_routers/auth_router.py](/C:/Users/Calin/PycharmProjects/CVgram/backend/routers/auth_routers/auth_router.py): auth, sessions, verification, reset password
-- [backend/routers/v1/parser.py](/C:/Users/Calin/PycharmProjects/CVgram/backend/routers/v1/parser.py): CV parsing, scoring, and profile generation
-- [backend/routers/v1/resume_score.py](/C:/Users/Calin/PycharmProjects/CVgram/backend/routers/v1/resume_score.py): profile lookup and search
+- [backend/main.py](backend/main.py): app entrypoint and frontend static serving
+- [backend/routers/auth_routers/auth_router.py](backend/routers/auth_routers/auth_router.py): auth, sessions, verification, reset password
+- [backend/routers/v1/parser.py](backend/routers/v1/parser.py): CV parsing, scoring, and profile generation
+- [backend/routers/v1/resume_score.py](backend/routers/v1/resume_score.py): profile lookup and search
 
 ## Main Frontend Screens
 
@@ -157,6 +157,12 @@ This command:
 
 Verification and password reset emails now derive their public base URL from the incoming backend request. If the app is running on `http://localhost:8000`, the email links point there automatically. If you run it on another port, the links follow that port.
 
+## Database SQL:
+
+This SQL file contains all the necessary commands to initialize it to a new server:
+
+- [design/database.sql](design\database.sql)
+
 ## Search Test Data
 
 To seed extra users for profile search testing, use:
@@ -166,4 +172,4 @@ psql -d your_database_name -f backend/db/seed_search_test_users.sql
 ```
 
 The seed file is here:
-- [backend/db/seed_search_test_users.sql](/C:/Users/Calin/PycharmProjects/CVgram/backend/db/seed_search_test_users.sql)
+- [backend/db/seed_search_test_users.sql](backend/db/seed_search_test_users.sql)
