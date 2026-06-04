@@ -11,7 +11,3 @@ This folder contains the deeper project notes for CV_GRAM. The root `README.md` 
 - [AI Processing](ai-processing.md): CV scoring, profile generation, async review, and limits.
 - [Troubleshooting](troubleshooting.md): common local development and runtime issues.
 - [README Proposal](readme-proposal.md): proposed root README direction for approval.
-
-## Existing Design Notes
-
-The original design notes are still under `design/`. They have not been deleted or moved in this cleanup pass.
